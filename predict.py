@@ -3,15 +3,12 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 from PIL import Image
 import io
-import tensorflow as tf
 
-# تقليل تحذيرات TensorFlow في Render
-tf.get_logger().setLevel('ERROR')
 
-# تحميل النموذج مرة واحدة عند تشغيل السيرفر
+# تحميل النموذج المدرب
 model = load_model("plant_disease_model.h5")
 
-# قائمة الأمراض حسب التدريب
+# الأصناف حسب ترتيب التدريب (عددها 15 بحسب الصورة التي أرسلتها)
 class_names = [
     'Pepper__bell___Bacterial_spot',
     'Pepper__bell___healthy',
@@ -29,25 +26,6 @@ class_names = [
     'Tomato_Septoria_leaf_spot',
     'Tomato_Spider_mites_Two_spotted_spider_mite'
 ]
-
-# أسماء أبسط لعرضها للمستخدم
-display_names = {
-    'Pepper__bell___Bacterial_spot': "بقعة بكتيرية في الفلفل",
-    'Pepper__bell___healthy': "فلفل سليم",
-    'Potato___Early_blight': "اللفحة المبكرة في البطاطس",
-    'Potato___healthy': "بطاطس سليمة",
-    'Potato___Late_blight': "اللفحة المتأخرة في البطاطس",
-    'Tomato___Target_Spot': "بقعة الهدف في الطماطم",
-    'Tomato___Tomato_mosaic_virus': "فيروس موزاييك الطماطم",
-    'Tomato___Tomato_YellowLeaf_Curl_Virus': "فيروس تجعد أوراق الطماطم",
-    'Tomato_Bacterial_spot': "بقعة بكتيرية في الطماطم",
-    'Tomato_Early_blight': "اللفحة المبكرة في الطماطم",
-    'Tomato_healthy': "طماطم سليمة",
-    'Tomato_Late_blight': "اللفحة المتأخرة في الطماطم",
-    'Tomato_Leaf_Mold': "عفن أوراق الطماطم",
-    'Tomato_Septoria_leaf_spot': "بقعة أوراق سبتموريا في الطماطم",
-    'Tomato_Spider_mites_Two_spotted_spider_mite': "عناكب الطماطم"
-}
 
 # قاموس العلاجات
 treatments = {
@@ -67,28 +45,26 @@ treatments = {
     'Tomato_Septoria_leaf_spot': "إزالة الأوراق المصابة واستخدام مبيدات فطرية.",
     'Tomato_Spider_mites_Two_spotted_spider_mite': "استخدم مبيد عناكب مثل Abamectin أو رش ماء بقوة."
 }
-
 def predict_image_from_path(file_path: str):
     with open(file_path, "rb") as f:
         img_bytes = f.read()
     return predict_image(img_bytes)
 
+
 def predict_image(img_bytes):
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-    img = img.resize((224, 224))  # نفس الحجم المستخدم في التدريب
+    img = img.resize((224, 224))  # التأكد من نفس الحجم المستخدم أثناء التدريب
     img_array = image.img_to_array(img) / 255.0
     img_array = np.expand_dims(img_array, axis=0)
-
     predictions = model.predict(img_array)
     predicted_index = np.argmax(predictions[0])
     predicted_class = class_names[predicted_index]
     confidence = float(np.max(predictions[0]))
 
     treatment = treatments.get(predicted_class, "لا توجد توصية علاجية متاحة.")
-    readable_name = display_names.get(predicted_class, predicted_class)
 
     return {
-        "disease": readable_name,
+        "disease": predicted_class,
         "confidence": round(confidence, 3),
         "treatment": treatment
     }
