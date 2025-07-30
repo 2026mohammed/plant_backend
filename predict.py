@@ -6,7 +6,7 @@ import io
 
 
 # تحميل النموذج المدرب
-model = load_model("plant_disease_model.h5")
+model = load_model("plant_disease_model (1).h5")
 
 # الأصناف حسب ترتيب التدريب (عددها 15 بحسب الصورة التي أرسلتها)
 class_names = [
