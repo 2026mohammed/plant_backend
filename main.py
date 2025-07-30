@@ -1,35 +1,41 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from predict import predict_image_from_path  # من الملف predict.py
-import shutil
+from predict import predict_image_from_path
+import tempfile
 import os
+import shutil
 
-app = FastAPI()
+app = FastAPI(title="Plant Disease Diagnosis API")
 
-# إعداد CORS للسماح للفرونتند بالوصول إلى هذا السيرفر
+# إعداد CORS للسماح بالاتصال من Flutter Web
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # أو ضع رابط تطبيقك
+    allow_origins=["*"],  # لاحقًا ضع رابط تطبيقك فقط
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# مجلد مؤقت لحفظ الصور
-UPLOAD_FOLDER = "uploaded_images"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
+@app.post("/predict")
 @app.post("/predict/")
 async def predict(file: UploadFile = File(...)):
-    # حفظ الصورة في مجلد مؤقت
-    file_location = os.path.join(UPLOAD_FOLDER, file.filename)
-    with open(file_location, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    # التحقق من نوع الملف
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="الملف المرفوع ليس صورة")
 
-    # استدعاء دالة التنبؤ من predict.py
-    result = predict_image_from_path(file_location)
+    # استخدام ملف مؤقت لتخزين الصورة
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = tmp.name
 
-    # حذف الصورة بعد التنبؤ (اختياري)
-    os.remove(file_location)
+    try:
+        result = predict_image_from_path(tmp_path)
+    finally:
+        # حذف الملف المؤقت حتى لو حدث خطأ
+        os.remove(tmp_path)
 
     return result
+
+@app.get("/")
+async def root():
+    return {"message": "Plant Disease Diagnosis API is running ✅"}
